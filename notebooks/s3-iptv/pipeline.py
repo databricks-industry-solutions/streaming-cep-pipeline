@@ -142,11 +142,13 @@ def get_step2_query(interval):
       l.ser_equip_ip,
       l.ser_phys_if_nm,
       l.last_collected_at,
-      l.last_1m_tx_multicast_pkts,
-      a.avg_3nm_tx_multicast_pkts,
-      -- 증감율 계산
-      (l.last_1m_tx_multicast_pkts - a.avg_3nm_tx_multicast_pkts)
-      / NULLIF(a.avg_3nm_tx_multicast_pkts, 0)      AS diff_ratio
+      CAST(l.last_1m_tx_multicast_pkts AS DOUBLE)   AS last_1m_tx_multicast_pkts,
+      CAST(a.avg_3nm_tx_multicast_pkts AS DOUBLE)   AS avg_3nm_tx_multicast_pkts,
+      -- 증감율 계산. CAST AS DOUBLE so zen-engine's DT comparison sees a JSON
+      -- number, not a Spark Decimal that serializes to string.
+      CAST((l.last_1m_tx_multicast_pkts - a.avg_3nm_tx_multicast_pkts)
+           / NULLIF(a.avg_3nm_tx_multicast_pkts, 0)
+           AS DOUBLE)                               AS diff_ratio
     FROM last_1m l
     JOIN avg_3nm a
       ON l.ser_equip_ip = a.ser_equip_ip

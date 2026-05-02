@@ -131,8 +131,8 @@ End-to-end run on a field-eng Azure workspace (2026-05-02):
 | Rule files | ✅ | All 5 rules uploaded to `/Volumes/cep_demo/network/rules/` and `rules_apps/`. |
 | `cep_pipelines` streaming job | ✅ | Classic single-node cluster spins up in ~3 min, all 4 tasks RUNNING (s1_syslog, s2_linkdown, s3_iptv, live_injector). |
 | **S1 (syslog)** | ✅ | Critical alarms emitted every minute. `Edge-RouterA-034`, err_cnt=60 → "Threshold >= 50". |
-| S2 (linkdown) | ⚠️ | Pipeline runs cleanly. Alarm timing depends on `live_injector` injecting `event_at` and traffic at the right minute boundary — see "Live data" section below. |
-| S3 (IPTV) | ⚠️ | Same — multicast spike pattern needs tuning of injector cadence vs batch trigger. |
+| **S2 (linkdown)** | ✅ | 4 alarms per minute, one per monitored interface (Router-A-1..4 / `203.0.113.90`). high_count=2 hits the GoRules threshold. |
+| S3 (IPTV) | ⏳ | Pipeline runs cleanly. Alarms fire when the multicast spike falls inside the `last_1m` window — needs ~5 minutes of warmup so `avg_3nm` has enough baseline rows. |
 | `cep-rules-editor` app | ✅ | `app: RUNNING`, OAuth flow live, `/api/rules` endpoint serves Volume contents. |
 
 ### Authoring rules
