@@ -6,3 +6,8 @@ __pycache__/
 rules_mock/
 .git/
 .DS_Store
+
+# The frontend `dist/` is .gitignore'd (build artifact) but MUST be included
+# in bundle uploads — the FastAPI backend serves it via StaticFiles.
+!frontend/dist/
+!frontend/dist/**

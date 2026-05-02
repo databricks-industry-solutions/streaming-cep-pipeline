@@ -1,4 +1,6 @@
 # Databricks notebook source
+# zen-engine is installed at the job level (databricks.yml libraries: pypi: zen-engine).
+# For interactive notebook runs, install with: %pip install zen-engine
 import json
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *

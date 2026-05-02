@@ -12,7 +12,7 @@
       "type": "functionNode",
       "name": "Interval (minutes)",
       "position": { "x": 420, "y": 200 },
-      "content": "/*\n * How long an OLT alarm must persist before we consider it 'sustained'\n * and proceed to traffic-trend analysis.\n * Operators tune this without redeploying the pipeline.\n */\nexport const handler = async (input) => ({ interval: 3 });\n"
+      "content": "// How long an OLT alarm must persist before traffic-trend analysis.\n// Operators tune this without redeploying the pipeline.\nfunction handler(input) {\n  return { interval: 3 };\n}\n"
     },
     {
       "id": "output_1",

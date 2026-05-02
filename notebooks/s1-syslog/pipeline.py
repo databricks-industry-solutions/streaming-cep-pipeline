@@ -1,4 +1,7 @@
 # Databricks notebook source
+# zen-engine is installed at the job level (databricks.yml libraries: pypi: zen-engine).
+# For interactive notebook runs, install with: %pip install zen-engine
+
 RULE_PATH_1 = "/Volumes/cep_demo/network/rules/1-1.json"  # TODO: 룰 경로 수정 필요
 RULE_PATH_2 = "/Volumes/cep_demo/network/rules/1-2.json"  # TODO: 룰 경로 수정 필요
 TARGET_TABLE = "cep_demo.network.s1_results"  # TODO: 테이블 경로 수정 필요

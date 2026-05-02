@@ -1,6 +1,13 @@
 bundle:
   name: streaming-cep-pipeline
 
+# Force-include the frontend build output. It is .gitignore'd (so dev workflows
+# don't commit build artifacts) but the FastAPI backend serves it from disk,
+# so the bundle deploy must upload it.
+sync:
+  include:
+    - apps/rule-editor/frontend/dist/**
+
 variables:
   project_name:
     description: "Project name used in deployment paths"
@@ -64,19 +71,55 @@ resources:
     # ----------------------------------------------------------------------
     # Streaming job — runs forever. Each task is a continuous foreachBatch
     # pipeline. Cancel the run to stop the streams.
+    #
+    # Serverless does not support `processingTime` triggers
+    # (INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED), so this job uses a small
+    # classic job cluster. zen-engine is installed via job libraries.
     # ----------------------------------------------------------------------
     cep_pipelines:
       name: "${var.project_name} - CEP scenarios (streaming)"
+      job_clusters:
+        - job_cluster_key: streaming_cluster
+          new_cluster:
+            spark_version: "17.3.x-scala2.13"
+            # Azure node — substitute for your cloud:
+            # AWS:   i3.xlarge / m5d.xlarge
+            # GCP:   n2-standard-4
+            # Azure: Standard_D4ds_v5 / Standard_DS3_v2
+            node_type_id: "Standard_D4ds_v5"
+            num_workers: 0
+            spark_conf:
+              "spark.databricks.cluster.profile": "singleNode"
+              "spark.master": "local[*]"
+            custom_tags:
+              ResourceClass: "SingleNode"
+            data_security_mode: "SINGLE_USER"
       tasks:
         - task_key: s1_syslog
+          job_cluster_key: streaming_cluster
           notebook_task:
             notebook_path: "./notebooks/s1-syslog/pipeline.py"
+          libraries:
+            - pypi: { package: "zen-engine" }
         - task_key: s2_linkdown
+          job_cluster_key: streaming_cluster
           notebook_task:
             notebook_path: "./notebooks/s2-linkdown/pipeline.py"
+          libraries:
+            - pypi: { package: "zen-engine" }
         - task_key: s3_iptv
+          job_cluster_key: streaming_cluster
           notebook_task:
             notebook_path: "./notebooks/s3-iptv/pipeline.py"
+          libraries:
+            - pypi: { package: "zen-engine" }
+        # Continuous live data injector — feeds the 3 streaming pipelines with
+        # fresh-timestamped rows so the time-windowed queries actually fire.
+        # Disable this task in production (use real upstream data sources).
+        - task_key: live_injector
+          job_cluster_key: streaming_cluster
+          notebook_task:
+            notebook_path: "./notebooks/live_injector.py"
 
   # ----------------------------------------------------------------------
   # Visual rule editor — Databricks App. Build the React frontend before

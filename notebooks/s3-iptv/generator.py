@@ -12,13 +12,14 @@ END_DATE = datetime(2026, 1, 31, 23, 59, 0)
 TABLE_ALARM = "cep_demo.network.s3_olt_alarm_events"
 TABLE_EQUIP = "cep_demo.network.s3_device_link_topology"
 TABLE_TRAFFIC = "cep_demo.network.s3_snmp_interface_traffic"
+TABLE_INVENTORY = "cep_demo.network.s3_router_inventory"
 
 # KST 시간대
 kst = pytz.timezone('Asia/Seoul')
 
 def clear_existing_data():
     """기존 데이터 삭제"""
-    tables = [TABLE_ALARM, TABLE_EQUIP, TABLE_TRAFFIC]
+    tables = [TABLE_ALARM, TABLE_EQUIP, TABLE_TRAFFIC, TABLE_INVENTORY]
     for tbl in tables:
         try:
             # 테이블 스키마 충돌 방지를 위해 DROP TABLE 사용 (재생성)
@@ -70,6 +71,12 @@ def generate_static_data():
     df = spark.createDataFrame(rows, schema=schema)
     df.write.mode("append").saveAsTable(TABLE_EQUIP)
     print("✅ 장비 연결 정보 생성 완료")
+
+    # SER router inventory — pipeline.py only emits alarms for routers in this table.
+    inventory_rows = [("198.51.100.212",), ("198.51.100.211",)]
+    spark.createDataFrame(inventory_rows, schema="router_ip STRING") \
+        .write.mode("append").saveAsTable(TABLE_INVENTORY)
+    print("✅ Router inventory 생성 완료")
 
 def generate_history_data():
     current_time = START_DATE

@@ -12,7 +12,7 @@
       "type": "functionNode",
       "name": "Pattern",
       "position": { "x": 420, "y": 200 },
-      "content": "export const handler = async (input) => ({\n  pattern: '%sapDHCPLseStatePopulateErr%'\n});\n"
+      "content": "function handler(input) {\n  return { pattern: '%sapDHCPLseStatePopulateErr%' };\n}\n"
     },
     {
       "id": "output_1",
