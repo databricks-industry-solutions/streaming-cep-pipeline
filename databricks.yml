@@ -29,6 +29,10 @@ variables:
     description: "Deployment environment (dev, staging, prod)"
     default: "dev"
 
+  node_type_id:
+    description: "Streaming cluster node type. Override per cloud — AWS: i3.xlarge / m5d.xlarge; GCP: n2-standard-4; Azure: Standard_D4ds_v5"
+    default: "i3.xlarge"
+
 targets:
   dev:
     default: true
@@ -82,11 +86,7 @@ resources:
         - job_cluster_key: streaming_cluster
           new_cluster:
             spark_version: "17.3.x-scala2.13"
-            # Azure node — substitute for your cloud:
-            # AWS:   i3.xlarge / m5d.xlarge
-            # GCP:   n2-standard-4
-            # Azure: Standard_D4ds_v5 / Standard_DS3_v2
-            node_type_id: "Standard_D4ds_v5"
+            node_type_id: "${var.node_type_id}"
             num_workers: 0
             spark_conf:
               "spark.databricks.cluster.profile": "singleNode"
