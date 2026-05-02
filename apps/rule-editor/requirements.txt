@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.10
+pydantic-settings>=2.6
+python-dotenv>=1.0
+python-multipart>=0.0.6
+databricks-sdk>=0.36
+requests>=2.31

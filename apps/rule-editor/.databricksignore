@@ -1,0 +1,8 @@
+# Exclude node_modules and other large directories from deployment
+frontend/node_modules/
+frontend/.git/
+__pycache__/
+.pytest_cache/
+rules_mock/
+.git/
+.DS_Store

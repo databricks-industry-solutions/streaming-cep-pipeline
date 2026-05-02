@@ -69,14 +69,31 @@ Equipment topology traversal (OLT → Aggregation Node → Service Node) with do
 ```
 streaming-cep-pipeline/
 ├── notebooks/
-│   ├── 00_setup.py              # Table creation + synthetic data
-│   ├── s1_pipeline.py           # S1: Single-source pattern detection
-│   ├── s2_pipeline.py           # S2: Multi-source correlation
-│   └── s3_pipeline.py           # S3: Topology-aware detection
+│   ├── s1-syslog/               # S1: single-source pattern detection
+│   │   ├── pipeline.py          #   Streaming foreachBatch driver
+│   │   ├── microbatch.py        #   Single-batch debug variant
+│   │   ├── review.py            #   Data inspection SQL
+│   │   └── generate_input.py    #   Synthetic data generator
+│   ├── s2-linkdown/             # S2: multi-source correlation (4+ tables)
+│   │   ├── pipeline.py
+│   │   ├── microbatch.py
+│   │   ├── target_timestamp.py  #   Re-run for a fixed timestamp
+│   │   ├── review.py
+│   │   └── generate_inputs.py
+│   └── s3-iptv/                 # S3: topology-aware detection (OLT → AGG → SER)
+│       ├── pipeline.py
+│       ├── microbatch.py
+│       ├── review.py
+│       └── generator.py
 ├── apps/
-│   └── rule-editor/             # Databricks Apps (FastAPI + React)
-├── rules/                       # GoRules JSON definitions
-├── diagrams/                    # Architecture diagrams
+│   └── rule-editor/             # Databricks App (FastAPI + React + GoRules JDM Editor)
+│       ├── app.py
+│       ├── app.yaml
+│       ├── apps-microbatch.py   # S1 variant that loads rules from rules_apps Volume
+│       ├── backend/             # /api/rules CRUD over UC Volume
+│       └── frontend/            # React + Vite (build with `npm run build`)
+├── dashboards/                  # Lakeview dashboards (optional)
+├── scripts/                     # Setup / cleanup helpers
 ├── databricks.yml               # Asset Bundle configuration
 └── README.md
 ```
@@ -111,3 +128,17 @@ One of the key features — operators can change rules while the pipeline is run
 
 - **Sangwon Park** ([@freepsw](https://github.com/freepsw)) — Project initiative & core architecture
 - **Jeonghwan Lee** ([@bellamy-k](https://github.com/bellamy-k)) — Implementation & packaging
+
+## Catalog & Volume Conventions
+
+The notebooks reference a catalog `cep_demo` and schema `network`. Adjust these to match your workspace:
+
+```sql
+CREATE CATALOG IF NOT EXISTS cep_demo;
+CREATE SCHEMA  IF NOT EXISTS cep_demo.network;
+CREATE VOLUME  IF NOT EXISTS cep_demo.network.rules;        -- pipeline rule files
+CREATE VOLUME  IF NOT EXISTS cep_demo.network.rules_apps;   -- rule editor app target
+CREATE VOLUME  IF NOT EXISTS cep_demo.network.checkpoints;  -- streaming checkpoints
+```
+
+If you use different names, update the `RULE_PATH*`, `TARGET_TABLE`, and `checkpointLocation` constants at the top of each pipeline file (and the `APP_VOLUME_PATH` env var in `apps/rule-editor/app.yaml`).

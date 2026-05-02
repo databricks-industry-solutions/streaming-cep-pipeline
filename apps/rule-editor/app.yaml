@@ -1,0 +1,4 @@
+command: ["python", "app.py"]
+env:
+  - name: APP_VOLUME_PATH
+    value: "/Volumes/cep_demo/network/rules_apps"
