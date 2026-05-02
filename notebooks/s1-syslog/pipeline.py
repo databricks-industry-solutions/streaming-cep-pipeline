@@ -114,3 +114,7 @@ stream_query = (
     .option("checkpointLocation", "/Volumes/cep_demo/network/checkpoints/s1_results_driver")  # TODO: checkpoint 경로 수정 필요
     .start()
 )
+
+# Block so the Databricks Job task does not exit immediately after .start().
+# Manually cancel the run to stop the stream.
+stream_query.awaitTermination()

@@ -6,9 +6,17 @@ variables:
     description: "Project name used in deployment paths"
     default: "streaming-cep-pipeline"
 
+  catalog:
+    description: "Unity Catalog name to write into"
+    default: "cep_demo"
+
+  schema:
+    description: "Schema (database) inside the catalog"
+    default: "network"
+
   warehouse_id:
-    lookup:
-      warehouse: "Shared Unity Catalog Serverless"
+    description: "Optional: SQL Warehouse for dashboards / ad-hoc queries"
+    default: ""
 
   environment:
     description: "Deployment environment (dev, staging, prod)"
@@ -19,20 +27,46 @@ targets:
     default: true
     mode: development
 
-resources:
-  # CEP Rules Editor — visual rule editor running on Databricks Apps.
-  # Build the React frontend before deploying: `cd apps/rule-editor/frontend && npm install && npm run build`
-  apps:
-    cep_rules_editor:
-      name: "cep-rules-editor"
-      description: "Visual rule editor for the CEP pipeline (FastAPI + React + GoRules JDM Editor)"
-      source_code_path: "/Users/${workspace.current_user.userName}/${var.project_name}-${var.environment}/files/apps/rule-editor"
+  prod:
+    mode: production
 
+resources:
+  # ----------------------------------------------------------------------
+  # Setup job — one-shot. Creates catalog/schema/volumes/result tables and
+  # generates 30 days of synthetic data for all three scenarios.
+  # ----------------------------------------------------------------------
   jobs:
-    # Run the three CEP scenario pipelines concurrently. Each is a continuous
-    # streaming job (foreachBatch with 1-minute trigger).
+    cep_setup:
+      name: "${var.project_name} - Setup (one-shot)"
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: "./notebooks/00_setup.py"
+            base_parameters:
+              catalog: "${var.catalog}"
+              schema: "${var.schema}"
+        - task_key: gen_s1
+          depends_on:
+            - task_key: setup
+          notebook_task:
+            notebook_path: "./notebooks/s1-syslog/generate_input.py"
+        - task_key: gen_s2
+          depends_on:
+            - task_key: setup
+          notebook_task:
+            notebook_path: "./notebooks/s2-linkdown/generate_inputs.py"
+        - task_key: gen_s3
+          depends_on:
+            - task_key: setup
+          notebook_task:
+            notebook_path: "./notebooks/s3-iptv/generator.py"
+
+    # ----------------------------------------------------------------------
+    # Streaming job — runs forever. Each task is a continuous foreachBatch
+    # pipeline. Cancel the run to stop the streams.
+    # ----------------------------------------------------------------------
     cep_pipelines:
-      name: "${var.project_name} - CEP scenarios"
+      name: "${var.project_name} - CEP scenarios (streaming)"
       tasks:
         - task_key: s1_syslog
           notebook_task:
@@ -43,5 +77,16 @@ resources:
         - task_key: s3_iptv
           notebook_task:
             notebook_path: "./notebooks/s3-iptv/pipeline.py"
+
+  # ----------------------------------------------------------------------
+  # Visual rule editor — Databricks App. Build the React frontend before
+  # deploying:
+  #     cd apps/rule-editor/frontend && npm install && npm run build
+  # ----------------------------------------------------------------------
+  apps:
+    cep_rules_editor:
+      name: "cep-rules-editor"
+      description: "Visual rule editor for the CEP pipeline (FastAPI + React + GoRules JDM Editor)"
+      source_code_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/${var.project_name}/${var.environment}/files/apps/rule-editor"
 
 # For more options and schema, see: https://docs.databricks.com/aws/en/dev-tools/bundles/settings

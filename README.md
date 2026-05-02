@@ -52,17 +52,61 @@ Equipment topology traversal (OLT → Aggregation Node → Service Node) with do
 ## Getting Started
 
 ### Prerequisites
-- Databricks workspace with Unity Catalog enabled
-- Serverless compute enabled
-- Python: `zen-engine` (GoRules)
+
+- Databricks workspace with Unity Catalog and Serverless compute
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) v0.205+
+- (Rule editor app only) Node.js 18+ for the React frontend build
 
 ### Quick Start
 
-1. Clone this repo into your Databricks Workspace
-2. Open the Asset Bundle Editor → Deploy
-3. Run the setup notebook to create tables and generate synthetic data
-4. Run the scenario pipelines (S1 → S2 → S3)
-5. (Optional) Deploy the rule editor app
+The whole pipeline (3 streaming scenarios + rule editor app) deploys as a single Databricks Asset Bundle. Defaults: catalog=`cep_demo`, schema=`network`. Override with `--var catalog=...,schema=...` if needed.
+
+```bash
+git clone https://github.com/databricks-industry-solutions/streaming-cep-pipeline
+cd streaming-cep-pipeline
+
+# 1) Build the rule editor frontend (required before bundle deploy)
+( cd apps/rule-editor/frontend && npm install && npm run build )
+
+# 2) Deploy the bundle (creates jobs + app definitions)
+databricks bundle deploy --target dev
+
+# 3) One-shot setup — creates catalog, schema, volumes, result tables,
+#    and 30 days of synthetic data for all three scenarios
+databricks bundle run cep_setup --target dev
+
+# 4) Upload starter rule files to the Volume the pipelines read from
+bash scripts/upload_rules.sh
+
+# 5) Start the streaming jobs (this runs forever; cancel the run to stop)
+databricks bundle run cep_pipelines --target dev
+
+# 6) (Optional) Deploy the rule editor Databricks App
+databricks apps deploy cep-rules-editor \
+  --source-code-path /Workspace/Users/$(databricks current-user me | jq -r .userName)/.bundle/streaming-cep-pipeline/dev/files/apps/rule-editor
+```
+
+After step 5, alarms will appear in `cep_demo.network.{s1_results, s2_results, s3_results}` within ~1 minute. Hot-reload demo: edit a rule via the app UI in step 6 → next microbatch picks it up automatically.
+
+### Customizing the catalog/schema
+
+Edit `databricks.yml`'s `variables.catalog.default` / `variables.schema.default`, OR pass per-deploy:
+
+```bash
+databricks bundle deploy --var catalog=my_catalog,schema=my_schema --target dev
+databricks bundle run cep_setup --var catalog=my_catalog,schema=my_schema --target dev
+bash scripts/upload_rules.sh my_catalog my_schema
+```
+
+> Note: the streaming pipeline files (`notebooks/s{1,2,3}-*/pipeline.py`) currently hard-code `cep_demo.network` in their SQL. If you change the catalog/schema you also need to find-replace those references (or fork and adjust). Future improvement: read from widgets like `00_setup.py` does.
+
+### Cleanup
+
+```bash
+bash scripts/cleanup.sh           # destroys the deployed bundle
+```
+
+The Volume contents (rules, checkpoints) and Delta tables persist — drop them manually if you want a fully clean slate.
 
 ### Project Structure
 

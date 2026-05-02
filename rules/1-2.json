@@ -1,0 +1,43 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "input_1",
+      "type": "inputNode",
+      "name": "Request",
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "dt_severity",
+      "type": "decisionTableNode",
+      "name": "Severity threshold",
+      "position": { "x": 420, "y": 200 },
+      "content": {
+        "hitPolicy": "first",
+        "inputs": [
+          { "id": "in_err", "name": "Error count", "field": "err_cnt" }
+        ],
+        "outputs": [
+          { "id": "out_alarm",  "name": "Should alarm", "field": "should_alarm" },
+          { "id": "out_sev",    "name": "Severity",     "field": "severity" },
+          { "id": "out_reason", "name": "Reason",       "field": "alarm_reason" }
+        ],
+        "rules": [
+          { "_id": "r1", "in_err": ">= 50", "out_alarm": "true",  "out_sev": "\"Critical\"", "out_reason": "\"Threshold >= 50\"" },
+          { "_id": "r2", "in_err": ">= 10", "out_alarm": "true",  "out_sev": "\"Warning\"",  "out_reason": "\"Threshold >= 10\"" },
+          { "_id": "r3", "in_err": "",      "out_alarm": "false", "out_sev": "\"Info\"",     "out_reason": "\"Below threshold\"" }
+        ]
+      }
+    },
+    {
+      "id": "output_1",
+      "type": "outputNode",
+      "name": "Response",
+      "position": { "x": 740, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "type": "edge", "sourceId": "input_1",     "targetId": "dt_severity" },
+    { "id": "e2", "type": "edge", "sourceId": "dt_severity", "targetId": "output_1" }
+  ]
+}

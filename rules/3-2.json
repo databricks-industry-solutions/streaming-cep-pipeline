@@ -1,0 +1,40 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "input_1",
+      "type": "inputNode",
+      "name": "Request",
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "dt_diff_ratio",
+      "type": "decisionTableNode",
+      "name": "Multicast diff_ratio threshold",
+      "position": { "x": 420, "y": 200 },
+      "content": {
+        "hitPolicy": "first",
+        "inputs": [
+          { "id": "in_diff", "name": "diff_ratio", "field": "diff_ratio" }
+        ],
+        "outputs": [
+          { "id": "out_alarm", "name": "Is alarm", "field": "is_alarm" }
+        ],
+        "rules": [
+          { "_id": "r1", "in_diff": ">= 0.2", "out_alarm": "true" },
+          { "_id": "r2", "in_diff": "",       "out_alarm": "false" }
+        ]
+      }
+    },
+    {
+      "id": "output_1",
+      "type": "outputNode",
+      "name": "Response",
+      "position": { "x": 740, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "type": "edge", "sourceId": "input_1",       "targetId": "dt_diff_ratio" },
+    { "id": "e2", "type": "edge", "sourceId": "dt_diff_ratio", "targetId": "output_1" }
+  ]
+}

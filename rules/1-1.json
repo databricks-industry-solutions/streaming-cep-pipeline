@@ -1,0 +1,28 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "input_1",
+      "type": "inputNode",
+      "name": "Request",
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "fn_pattern",
+      "type": "functionNode",
+      "name": "Pattern",
+      "position": { "x": 420, "y": 200 },
+      "content": "export const handler = async (input) => ({\n  pattern: '%sapDHCPLseStatePopulateErr%'\n});\n"
+    },
+    {
+      "id": "output_1",
+      "type": "outputNode",
+      "name": "Response",
+      "position": { "x": 740, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "type": "edge", "sourceId": "input_1", "targetId": "fn_pattern" },
+    { "id": "e2", "type": "edge", "sourceId": "fn_pattern", "targetId": "output_1" }
+  ]
+}

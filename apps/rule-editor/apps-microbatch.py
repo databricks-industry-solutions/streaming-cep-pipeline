@@ -132,3 +132,5 @@ stream_query = (
     .option("checkpointLocation", "/Volumes/cep_demo/network/checkpoints/apps")
     .start()
 )
+
+stream_query.awaitTermination()

@@ -254,3 +254,7 @@ stream_query = (
     .option("checkpointLocation", "/Volumes/cep_demo/network/checkpoints/s2_results_driver")  # TODO: 수정 필요
     .start()
 )
+
+# Block so the Databricks Job task does not exit immediately after .start().
+# Manually cancel the run to stop the stream.
+stream_query.awaitTermination()

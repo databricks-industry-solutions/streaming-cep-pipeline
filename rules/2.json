@@ -1,0 +1,28 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "input_1",
+      "type": "inputNode",
+      "name": "Request",
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "fn_correlate",
+      "type": "functionNode",
+      "name": "Correlate anomalies",
+      "position": { "x": 420, "y": 200 },
+      "content": "/*\n * Group per-minute anomaly rows by (router_ip, local_device_name)\n * and emit an alarm when high-anomaly or low-anomaly count crosses\n * the threshold inside the windowed batch.\n */\nconst HIGH_ALARM_THRESHOLD = 2;\nconst LOW_ALARM_THRESHOLD  = 2;\n\nexport const handler = async (input) => {\n  const results = (input && input.anomaly_results) || [];\n  const groups = {};\n  for (const r of results) {\n    const key = (r.router_ip || '') + '|' + (r.local_device_name || '');\n    if (!groups[key]) {\n      groups[key] = {\n        router_ip: r.router_ip,\n        local_device_name: r.local_device_name,\n        high_count: 0,\n        low_count: 0\n      };\n    }\n    if (r.anomaly_flag === 'high_anomaly') groups[key].high_count += 1;\n    else if (r.anomaly_flag === 'low_anomaly') groups[key].low_count += 1;\n  }\n  const now = new Date().toISOString();\n  const alarms = [];\n  for (const k of Object.keys(groups)) {\n    const g = groups[k];\n    if (g.high_count >= HIGH_ALARM_THRESHOLD || g.low_count >= LOW_ALARM_THRESHOLD) {\n      alarms.push({\n        created_at: now,\n        router_ip: g.router_ip,\n        local_device_name: g.local_device_name,\n        high_count: g.high_count,\n        low_count: g.low_count\n      });\n    }\n  }\n  return { alarms };\n};\n"
+    },
+    {
+      "id": "output_1",
+      "type": "outputNode",
+      "name": "Response",
+      "position": { "x": 740, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "type": "edge", "sourceId": "input_1",      "targetId": "fn_correlate" },
+    { "id": "e2", "type": "edge", "sourceId": "fn_correlate", "targetId": "output_1" }
+  ]
+}
