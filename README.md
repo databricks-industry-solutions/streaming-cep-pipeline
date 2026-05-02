@@ -53,40 +53,53 @@ Equipment topology traversal (OLT → Aggregation Node → Service Node) with do
 
 ### Prerequisites
 
-- Databricks workspace with Unity Catalog and Serverless compute
-- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) v0.205+
+- Databricks workspace with Unity Catalog. **Classic compute is required** for the streaming jobs — serverless does not support `processingTime` triggers (`INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED`). The setup job and the rule editor app run fine on either.
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) v0.205+ (tested on v0.299)
 - (Rule editor app only) Node.js 18+ for the React frontend build
+- Pick a node type for your cloud and update `databricks.yml`'s `node_type_id`:
+  - **AWS:** `i3.xlarge` or `m5d.xlarge`
+  - **GCP:** `n2-standard-4`
+  - **Azure:** `Standard_D4ds_v5` *(default)*
 
 ### Quick Start
 
-The whole pipeline (3 streaming scenarios + rule editor app) deploys as a single Databricks Asset Bundle. Defaults: catalog=`cep_demo`, schema=`network`. Override with `--var catalog=...,schema=...` if needed.
+Defaults: catalog=`cep_demo`, schema=`network`.
 
 ```bash
 git clone https://github.com/databricks-industry-solutions/streaming-cep-pipeline
 cd streaming-cep-pipeline
 
-# 1) Build the rule editor frontend (required before bundle deploy)
+# 1) Build the rule editor frontend (required before bundle deploy — the
+#    React dist is served from disk by the FastAPI backend)
 ( cd apps/rule-editor/frontend && npm install && npm run build )
 
-# 2) Deploy the bundle (creates jobs + app definitions)
+# 2) Deploy the bundle (uploads files, creates the cep_setup + cep_pipelines
+#    jobs and the cep-rules-editor app definition)
 databricks bundle deploy --target dev
 
-# 3) One-shot setup — creates catalog, schema, volumes, result tables,
-#    and 30 days of synthetic data for all three scenarios
+# 3) One-shot setup — catalog, schema, volumes, result tables, and 30 days
+#    of synthetic data for all three scenarios
 databricks bundle run cep_setup --target dev
 
-# 4) Upload starter rule files to the Volume the pipelines read from
+# 4) Upload starter rule files to the Volume that the pipelines read from
 bash scripts/upload_rules.sh
 
-# 5) Start the streaming jobs (this runs forever; cancel the run to stop)
-databricks bundle run cep_pipelines --target dev
+# 5) Start the streaming jobs. This runs forever (a job task per scenario
+#    plus the live_injector). Use --no-wait to return immediately; the run
+#    keeps going on Databricks until you cancel it.
+databricks bundle run cep_pipelines --target dev --no-wait
 
-# 6) (Optional) Deploy the rule editor Databricks App
+# 6) Deploy the rule editor Databricks App. The app must be started first
+#    (auto-started by `bundle deploy` in newer CLIs; fall back to `apps start`).
+WORKSPACE_USER=$(databricks current-user me | python3 -c "import sys,json;print(json.load(sys.stdin)['userName'])")
+databricks apps start cep-rules-editor   # idempotent; ok if already running
 databricks apps deploy cep-rules-editor \
-  --source-code-path /Workspace/Users/$(databricks current-user me | jq -r .userName)/.bundle/streaming-cep-pipeline/dev/files/apps/rule-editor
+  --source-code-path "/Workspace/Users/${WORKSPACE_USER}/.bundle/streaming-cep-pipeline/dev/files/apps/rule-editor"
 ```
 
-After step 5, alarms will appear in `cep_demo.network.{s1_results, s2_results, s3_results}` within ~1 minute. Hot-reload demo: edit a rule via the app UI in step 6 → next microbatch picks it up automatically.
+Within ~3 minutes the streaming cluster spins up and the first microbatch fires. Alarms appear in `cep_demo.network.{s1_results, s2_results, s3_results}` once a minute. Open the rule editor app URL (printed by `apps deploy`) in your browser to demo hot-reload — edit a rule, save, watch the next microbatch use the new version.
+
+> If `bundle deploy` errors with `unable to verify checksums signature: openpgp: key expired`, your CLI's bundled Terraform is stale. Either upgrade the CLI (`brew upgrade databricks` / equivalent) or point at a system Terraform: `DATABRICKS_TF_EXEC_PATH=$(which terraform) DATABRICKS_TF_VERSION=$(terraform version -json | jq -r .terraform_version) databricks bundle deploy`.
 
 ### Customizing the catalog/schema
 
@@ -98,15 +111,51 @@ databricks bundle run cep_setup --var catalog=my_catalog,schema=my_schema --targ
 bash scripts/upload_rules.sh my_catalog my_schema
 ```
 
-> Note: the streaming pipeline files (`notebooks/s{1,2,3}-*/pipeline.py`) currently hard-code `cep_demo.network` in their SQL. If you change the catalog/schema you also need to find-replace those references (or fork and adjust). Future improvement: read from widgets like `00_setup.py` does.
+> The streaming pipeline files (`notebooks/s{1,2,3}-*/pipeline.py`) currently hard-code `cep_demo.network` in SQL. If you change the catalog/schema you also need to find-replace those references (`grep -rl 'cep_demo.network' notebooks/`). The setup notebook (`00_setup.py`) is properly parameterized via widgets.
 
 ### Cleanup
 
 ```bash
-bash scripts/cleanup.sh           # destroys the deployed bundle
+bash scripts/cleanup.sh           # destroys the deployed bundle (jobs, app definition)
 ```
 
-The Volume contents (rules, checkpoints) and Delta tables persist — drop them manually if you want a fully clean slate.
+The Volume contents (rules, checkpoints) and Delta tables persist — drop them manually if you want a fully clean slate (`DROP CATALOG cep_demo CASCADE`).
+
+## Verified
+
+End-to-end run on a field-eng Azure workspace (2026-05-02):
+
+| Component | Status | Notes |
+|---|---|---|
+| `cep_setup` job | ✅ | Catalog/schema/3 volumes/3 result tables created. s1/s3 generators completed; s2 generator works but is slow due to per-batch Delta commits. |
+| Rule files | ✅ | All 5 rules uploaded to `/Volumes/cep_demo/network/rules/` and `rules_apps/`. |
+| `cep_pipelines` streaming job | ✅ | Classic single-node cluster spins up in ~3 min, all 4 tasks RUNNING (s1_syslog, s2_linkdown, s3_iptv, live_injector). |
+| **S1 (syslog)** | ✅ | Critical alarms emitted every minute. `Edge-RouterA-034`, err_cnt=60 → "Threshold >= 50". |
+| S2 (linkdown) | ⚠️ | Pipeline runs cleanly. Alarm timing depends on `live_injector` injecting `event_at` and traffic at the right minute boundary — see "Live data" section below. |
+| S3 (IPTV) | ⚠️ | Same — multicast spike pattern needs tuning of injector cadence vs batch trigger. |
+| `cep-rules-editor` app | ✅ | `app: RUNNING`, OAuth flow live, `/api/rules` endpoint serves Volume contents. |
+
+### Authoring rules
+
+The rule files in `rules/` use the [GoRules JDM](https://gorules.io/docs) format. Two gotchas the live-test surfaced:
+
+- **Function nodes** must declare a `handler` function (no `export`). The expression-only form (`({foo: 1})`) is not enough — zen-engine looks up `handler` by name:
+
+  ```js
+  function handler(input) {
+    return { pattern: '%sapDHCPLseStatePopulateErr%' };
+  }
+  ```
+
+- **Decision tables** input cells are lambda-style expressions on the input field (`>= 50`, `"gold"`). Output cells are JSON-ish expressions (`true`, `"Critical"`, `42`). String literals must be quoted.
+
+The pipeline reloads rules on every microbatch (`os.path.getmtime` check), so saving a new rule via the app produces a hot-reload within ~60 seconds — no pipeline restart.
+
+### Live data
+
+`notebooks/live_injector.py` is the 4th task in `cep_pipelines`. It injects fresh-timestamped rows into all source tables every minute so the pipelines' `now - N min` windows actually find data. **In production you'd disable this task** and point the pipelines at real upstream tables (Event Hubs / Zerobus / SDP into Bronze).
+
+The injector exists because the bulk synthetic data from the generators (notebooks/s\*/generate\*.py) covers `2026-02-01 ~ 2026-03-01` — useful for backfill / replay scenarios but invisible to time-windowed streaming queries.
 
 ### Project Structure
 
