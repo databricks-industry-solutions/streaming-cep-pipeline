@@ -99,7 +99,9 @@ def generate_history_data():
 
         current_time += timedelta(minutes=1)
 
-        if len(linkdown_buffer) >= 120:
+        # Larger buffer (10 days) -> 3 saveAsTable calls instead of ~360.
+        # Earlier 120-row threshold caused gen_s2 to take 100+ minutes.
+        if len(linkdown_buffer) >= 28800:
             save_buffers(linkdown_buffer, traffic_buffer, forecast_buffer)
             linkdown_buffer = []
             traffic_buffer = []

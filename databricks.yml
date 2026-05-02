@@ -122,6 +122,16 @@ resources:
             notebook_path: "./notebooks/live_injector.py"
 
   # ----------------------------------------------------------------------
+  # Lakeview dashboard for alarm visualization. Requires
+  # `--var warehouse_id=<id>` (or set the default in variables above).
+  # ----------------------------------------------------------------------
+  dashboards:
+    cep_alarms:
+      display_name: "${var.project_name} - CEP alarms"
+      file_path: "./dashboards/cep_alarms.lvdash.json"
+      warehouse_id: "${var.warehouse_id}"
+
+  # ----------------------------------------------------------------------
   # Visual rule editor — Databricks App. Build the React frontend before
   # deploying:
   #     cd apps/rule-editor/frontend && npm install && npm run build

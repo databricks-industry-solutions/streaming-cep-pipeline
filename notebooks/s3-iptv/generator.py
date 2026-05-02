@@ -123,7 +123,9 @@ def generate_history_data():
         current_time += timedelta(minutes=1)
         i += 1
 
-        if len(alarm_buffer) >= 1000:
+        # Larger buffer (~10 days) keeps the generator well under driver
+        # memory while cutting saveAsTable count from ~90 to ~3.
+        if len(alarm_buffer) >= 14400:
             save_buffers(alarm_buffer, traffic_buffer)
             alarm_buffer = []
             traffic_buffer = []

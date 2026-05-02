@@ -1,0 +1,162 @@
+{
+  "datasets": [
+    {
+      "name": "s1_alarms",
+      "displayName": "S1 syslog alarms",
+      "queryLines": [
+        "SELECT alarm_time, router_name, router_ip, error_count, severity, alarm_reason\n",
+        "FROM cep_demo.network.s1_results\n",
+        "WHERE alarm_time > current_timestamp() - INTERVAL 24 HOURS\n",
+        "ORDER BY alarm_time DESC\n"
+      ]
+    },
+    {
+      "name": "s2_alarms",
+      "displayName": "S2 linkdown / traffic anomaly alarms",
+      "queryLines": [
+        "SELECT created_at, router_ip, local_device_name, high_count, low_count\n",
+        "FROM cep_demo.network.s2_results\n",
+        "WHERE created_at > current_timestamp() - INTERVAL 24 HOURS\n",
+        "ORDER BY created_at DESC\n"
+      ]
+    },
+    {
+      "name": "s3_alarms",
+      "displayName": "S3 IPTV multicast diff_ratio alarms",
+      "queryLines": [
+        "SELECT created_at, ser_equip_ip, ser_phys_if_nm, diff_ratio, last_1m_val, avg_3nm_val\n",
+        "FROM cep_demo.network.s3_results\n",
+        "WHERE created_at > current_timestamp() - INTERVAL 24 HOURS\n",
+        "ORDER BY created_at DESC\n"
+      ]
+    },
+    {
+      "name": "alarms_per_minute",
+      "displayName": "Alarms per minute (all scenarios)",
+      "queryLines": [
+        "SELECT date_trunc('minute', alarm_time) AS bucket, 'S1' AS scenario, count(*) AS n\n",
+        "FROM cep_demo.network.s1_results\n",
+        "WHERE alarm_time > current_timestamp() - INTERVAL 6 HOURS\n",
+        "GROUP BY 1, 2\n",
+        "UNION ALL\n",
+        "SELECT date_trunc('minute', created_at) AS bucket, 'S2' AS scenario, count(*) AS n\n",
+        "FROM cep_demo.network.s2_results\n",
+        "WHERE created_at > current_timestamp() - INTERVAL 6 HOURS\n",
+        "GROUP BY 1, 2\n",
+        "UNION ALL\n",
+        "SELECT date_trunc('minute', created_at) AS bucket, 'S3' AS scenario, count(*) AS n\n",
+        "FROM cep_demo.network.s3_results\n",
+        "WHERE created_at > current_timestamp() - INTERVAL 6 HOURS\n",
+        "GROUP BY 1, 2\n",
+        "ORDER BY bucket, scenario\n"
+      ]
+    },
+    {
+      "name": "s1_severity_split",
+      "displayName": "S1 severity split (last 6h)",
+      "queryLines": [
+        "SELECT severity, count(*) AS n\n",
+        "FROM cep_demo.network.s1_results\n",
+        "WHERE alarm_time > current_timestamp() - INTERVAL 6 HOURS\n",
+        "GROUP BY severity\n",
+        "ORDER BY n DESC\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "CEP Alarm Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_s1",
+            "queries": [{"name": "main_query", "query": {"datasetName": "s1_alarms", "fields": [{"name": "n", "expression": "COUNT(*)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "n", "displayName": "S1 alarms 24h", "rowNumber": 1, "format": {"type": "number-plain"}}}
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi_s2",
+            "queries": [{"name": "main_query", "query": {"datasetName": "s2_alarms", "fields": [{"name": "n", "expression": "COUNT(*)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "n", "displayName": "S2 alarms 24h", "rowNumber": 1, "format": {"type": "number-plain"}}}
+            }
+          },
+          "position": {"x": 2, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi_s3",
+            "queries": [{"name": "main_query", "query": {"datasetName": "s3_alarms", "fields": [{"name": "n", "expression": "COUNT(*)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "n", "displayName": "S3 alarms 24h", "rowNumber": 1, "format": {"type": "number-plain"}}}
+            }
+          },
+          "position": {"x": 4, "y": 0, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "alarms_per_min_chart",
+            "queries": [{"name": "main_query", "query": {"datasetName": "alarms_per_minute", "fields": [{"name": "bucket", "expression": "`bucket`"}, {"name": "scenario", "expression": "`scenario`"}, {"name": "n_sum", "expression": "SUM(`n`)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {"fieldName": "bucket", "scale": {"type": "temporal"}, "displayName": "Minute"},
+                "y": {"fieldName": "n_sum", "scale": {"type": "quantitative"}, "displayName": "Alarms"},
+                "color": {"fieldName": "scenario", "scale": {"type": "categorical"}, "displayName": "Scenario"}
+              }
+            }
+          },
+          "position": {"x": 0, "y": 3, "width": 6, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "severity_pie",
+            "queries": [{"name": "main_query", "query": {"datasetName": "s1_severity_split", "fields": [{"name": "severity", "expression": "`severity`"}, {"name": "n_sum", "expression": "SUM(`n`)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {"fieldName": "n_sum", "displayName": "count"},
+                "color": {"fieldName": "severity", "scale": {"type": "categorical"}, "displayName": "Severity"}
+              }
+            }
+          },
+          "position": {"x": 0, "y": 9, "width": 3, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "s2_recent_table",
+            "queries": [{"name": "main_query", "query": {"datasetName": "s2_alarms", "disaggregated": true, "fields": [{"name": "created_at", "expression": "`created_at`"}, {"name": "router_ip", "expression": "`router_ip`"}, {"name": "local_device_name", "expression": "`local_device_name`"}, {"name": "high_count", "expression": "`high_count`"}, {"name": "low_count", "expression": "`low_count`"}]}}],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {"fieldName": "created_at", "displayName": "Created at", "type": "datetime"},
+                  {"fieldName": "router_ip", "displayName": "Router IP", "type": "string"},
+                  {"fieldName": "local_device_name", "displayName": "Device", "type": "string"},
+                  {"fieldName": "high_count", "displayName": "High", "type": "integer"},
+                  {"fieldName": "low_count", "displayName": "Low", "type": "integer"}
+                ]
+              }
+            }
+          },
+          "position": {"x": 3, "y": 9, "width": 3, "height": 6}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {"theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"}}
+}
