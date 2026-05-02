@@ -157,6 +157,19 @@ The pipeline reloads rules on every microbatch (`os.path.getmtime` check), so sa
 
 The injector exists because the bulk synthetic data from the generators (notebooks/s\*/generate\*.py) covers `2026-02-01 ~ 2026-03-01` — useful for backfill / replay scenarios but invisible to time-windowed streaming queries.
 
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `bundle deploy` fails with `unable to verify checksums signature: openpgp: key expired` | Stale Terraform bundled with the CLI | `brew upgrade databricks` *or* set `DATABRICKS_TF_EXEC_PATH` and `DATABRICKS_TF_VERSION` to your system Terraform |
+| Streaming task fails with `INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED` | Pipeline scheduled on serverless compute | Use a classic job cluster (already configured for `cep_pipelines`); serverless does not support `processingTime` triggers |
+| Pipeline fails with `unsupported keyword: export` | Function-node rule uses ES module syntax | Use `function handler(input) { ... }` form, no `export const handler` |
+| Pipeline fails with `handler is not defined` | Function node uses an expression-only body | zen-engine looks up `handler` by name; declare a function literal |
+| S3 alarms never fire even though spikes exist | `diff_ratio` returned as Spark Decimal, serialized as JSON string instead of number | Already fixed: pipeline.py casts `diff_ratio` to `DOUBLE` before passing rows to the rule. If you change the SQL, keep the cast |
+| App URL 401/redirects forever | App compute STOPPED, or source not deployed yet | `databricks apps start cep-rules-editor`, then `databricks apps deploy ...` |
+| `bundle run cep_setup` is slow on `gen_s2` | Per-batch Delta commits in the synthetic data generator | Generator is correctness-first, not speed; safe to cancel after the s1/s3 generators succeed (they are independent tasks) |
+| `Run setup workflow` GitHub Action errors with "demo_workflow not found" | Template CI references the original `demo_workflow` job. Update `.github/workflows/databricks-ci.yml` to point at `cep_setup` (one-shot) — `cep_pipelines` is infinite-streaming and not suitable for CI | n/a |
+
 ### Project Structure
 
 ```
