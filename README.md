@@ -132,7 +132,7 @@ End-to-end run on a field-eng Azure workspace (2026-05-02):
 | `cep_pipelines` streaming job | ✅ | Classic single-node cluster spins up in ~3 min, all 4 tasks RUNNING (s1_syslog, s2_linkdown, s3_iptv, live_injector). |
 | **S1 (syslog)** | ✅ | Critical alarms emitted every minute. `Edge-RouterA-034`, err_cnt=60 → "Threshold >= 50". |
 | **S2 (linkdown)** | ✅ | 4 alarms per minute, one per monitored interface (Router-A-1..4 / `203.0.113.90`). high_count=2 hits the GoRules threshold. |
-| S3 (IPTV) | ⏳ | Pipeline runs cleanly. Alarms fire when the multicast spike falls inside the `last_1m` window — needs ~5 minutes of warmup so `avg_3nm` has enough baseline rows. |
+| **S3 (IPTV)** | ✅ | 2 alarms when the multicast spike (1000) falls inside `last_1m` — diff_ratio=1.5, last_1m=1000, avg_3nm=400. Fires every 5 minutes once warm. |
 | `cep-rules-editor` app | ✅ | `app: RUNNING`, OAuth flow live, `/api/rules` endpoint serves Volume contents. |
 
 ### Authoring rules
@@ -147,7 +147,7 @@ The rule files in `rules/` use the [GoRules JDM](https://gorules.io/docs) format
   }
   ```
 
-- **Decision tables** input cells are lambda-style expressions on the input field (`>= 50`, `"gold"`). Output cells are JSON-ish expressions (`true`, `"Critical"`, `42`). String literals must be quoted.
+- **Decision tables** input cells are lambda-style expressions on the input field (`>= 50`, `"gold"`). Output cells are JSON-ish expressions (`true`, `"Critical"`, `42`). String literals must be quoted. *Caveat:* Spark Decimal columns serialized to the rule did not match the lambda comparison reliably for S3's `diff_ratio` even with `CAST AS DOUBLE` upstream — when the input is numeric and might come from Spark, prefer a function node that does its own `Number(input.x)` coercion (see `rules/3-2.json`). Decision tables are still the right call for string-equality enums (severity tier, status code) and threshold ladders against integer columns (see `rules/1-2.json`).
 
 The pipeline reloads rules on every microbatch (`os.path.getmtime` check), so saving a new rule via the app produces a hot-reload within ~60 seconds — no pipeline restart.
 
