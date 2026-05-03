@@ -44,7 +44,7 @@ def generate_static_data():
     ]
 
     rows = []
-    for link_type, lfb_nm, lfb_ip, ofb_ip, lfb_if in static_data:
+    for link_type, local_name, local_ip, remote_ip, local_if in static_data:
         # 필요한 컬럼 외에는 NULL
         # 스키마 순서:
         # link_type, local_device_name, local_device_code, local_device_ip, ...
@@ -53,10 +53,10 @@ def generate_static_data():
         # Row 생성 (22개 컬럼)
         row = [None] * 22
         row[0] = link_type
-        row[1] = lfb_nm
-        row[3] = lfb_ip
-        row[6] = lfb_if
-        row[9] = ofb_ip
+        row[1] = local_name
+        row[3] = local_ip
+        row[6] = local_if
+        row[9] = remote_ip
         rows.append(tuple(row))
 
     schema = """

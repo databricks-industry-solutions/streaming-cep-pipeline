@@ -53,13 +53,13 @@ Equipment topology traversal (OLT → Aggregation Node → Service Node) with do
 
 ### Prerequisites
 
-- Databricks workspace with Unity Catalog. **Classic compute is required** for the streaming jobs — serverless does not support `processingTime` triggers (`INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED`). The setup job and the rule editor app run fine on either.
+- Databricks workspace with Unity Catalog. **Classic compute is required** for the streaming jobs — serverless does not support `processingTime` triggers (`INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED`). Serverless-only workspaces will fail at `bundle deploy`. The setup job and the rule editor app run fine on either.
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) v0.205+ (tested on v0.299)
 - (Rule editor app only) Node.js 18+ for the React frontend build
-- Pick a node type for your cloud and update `databricks.yml`'s `node_type_id`:
-  - **AWS:** `i3.xlarge` or `m5d.xlarge`
+- Default `node_type_id` is `i3.xlarge` (AWS). Override per cloud with `--var node_type_id=...`:
+  - **AWS:** `i3.xlarge` *(default)* or `m5d.xlarge`
   - **GCP:** `n2-standard-4`
-  - **Azure:** `Standard_D4ds_v5` *(default)*
+  - **Azure:** `Standard_D4ds_v5`
 
 ### Quick Start
 

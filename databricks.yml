@@ -122,15 +122,20 @@ resources:
             notebook_path: "./notebooks/live_injector.py"
 
   # ----------------------------------------------------------------------
-  # Lakeview dashboard for alarm visualization. Requires
-  # `--var warehouse_id=<id>` (or set the default in variables above).
-  # ----------------------------------------------------------------------
-  dashboards:
-    cep_alarms:
-      display_name: "${var.project_name} - CEP alarms"
-      file_path: "./dashboards/cep_alarms.lvdash.json"
-      warehouse_id: "${var.warehouse_id}"
-
+  # Lakeview dashboard for alarm visualization (opt-in).
+  #
+  # Uncomment the block below AND pass --var warehouse_id=<id> at deploy
+  # time. Warehouse name conventions differ across workspaces (e.g.
+  # "Shared Unity Catalog Serverless", "Serverless Starter Warehouse"),
+  # so we don't lookup by name to keep the bundle portable.
+  #
+  #   databricks bundle deploy --var warehouse_id=$(databricks warehouses list -o json | jq -r '.[0].id')
+  #
+  # dashboards:
+  #   cep_alarms:
+  #     display_name: "${var.project_name} - CEP alarms"
+  #     file_path: "./dashboards/cep_alarms.lvdash.json"
+  #     warehouse_id: "${var.warehouse_id}"
   # ----------------------------------------------------------------------
   # Visual rule editor — Databricks App. Build the React frontend before
   # deploying:
