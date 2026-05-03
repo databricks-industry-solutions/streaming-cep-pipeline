@@ -57,8 +57,8 @@ flowchart LR
   P2 --> ZEN
   P3 --> ZEN
 
-  VOL -. hot-reload<br/>os.path.getmtime .-> ZEN
-  APP -. save .-> VOL
+  VOL -.->|hot reload via mtime| ZEN
+  APP -.->|save| VOL
 
   ZEN --> R1
   ZEN --> R2
