@@ -107,10 +107,15 @@ jobs:
       - name: Deploy workflow
         run: databricks bundle deploy --var="environment=${{ env.DEPLOY_ENV }}"        
 
-      - name: Run and monitor workflow
+      - name: Run setup workflow (one-shot — creates UC objects + synthetic data)
         run: |
-          echo "Starting workflow execution..."
-          databricks bundle run demo_workflow --target dev --var="environment=${{ env.DEPLOY_ENV }}"
+          echo "Starting cep_setup..."
+          databricks bundle run cep_setup --target dev --var="environment=${{ env.DEPLOY_ENV }}"
+
+      # cep_pipelines is intentionally NOT run in CI: it is a continuous
+      # streaming job that never terminates by design (each task awaits
+      # its StreamingQuery indefinitely). Validate + deploy + the one-shot
+      # setup is enough to catch most regressions.
 
       - name: Cleanup PR deployment
         run: |
