@@ -16,7 +16,54 @@ Enterprises with real-time event streams need to detect complex patterns — mul
 
 ## The Solution
 
-![CEP Architecture](diagrams/cep-architecture.png)
+```mermaid
+flowchart LR
+  subgraph SRC["Source tables (UC)"]
+    direction TB
+    S1[s1_router_syslog_events]
+    S2A[s2_snmp_linkdown_events]
+    S2B[s2_snmp_interface_traffic]
+    S2C[s2_traffic_forecast]
+    S3A[s3_olt_alarm_events]
+    S3B[s3_router_inventory]
+  end
+
+  subgraph STREAM["Streaming pipelines · foreachBatch · 1-min trigger"]
+    direction TB
+    P1["S1 — pattern detection"]
+    P2["S2 — multi-source correlation"]
+    P3["S3 — topology + diff_ratio"]
+  end
+
+  ZEN["GoRules zen-engine<br/>(embedded, in-process)"]
+  VOL[("UC Volume<br/>rules/*.json")]
+  APP["Databricks App<br/>FastAPI + React<br/>GoRules JDM Editor"]
+
+  subgraph OUT["Result tables"]
+    direction TB
+    R1[s1_results]
+    R2[s2_results]
+    R3[s3_results]
+  end
+
+  S1 --> P1
+  S2A --> P2
+  S2B --> P2
+  S2C --> P2
+  S3A --> P3
+  S3B --> P3
+
+  P1 --> ZEN
+  P2 --> ZEN
+  P3 --> ZEN
+
+  VOL -. hot-reload<br/>os.path.getmtime .-> ZEN
+  APP -. save .-> VOL
+
+  ZEN --> R1
+  ZEN --> R2
+  ZEN --> R3
+```
 
 This solution accelerator provides an end-to-end CEP pipeline with:
 
@@ -33,10 +80,12 @@ This solution accelerator provides an end-to-end CEP pipeline with:
 |--------|-------------|-------------------|---------------------|
 | Batch time | ~6s | ~7s | ~9s |
 | Data sources | 1 | 4+ | 4+ |
-| Rule types | Decision Table | Function Node | DT + FN + SQL |
-| Compute | Serverless | Serverless | Serverless |
+| Rule types | Function Node + Decision Table | Function Node | Function Node + Decision Table |
+| Compute | Classic single-node (shared) | Classic single-node (shared) | Classic single-node (shared) |
 
-Estimated cost: **~$1.16/hour** on serverless compute.
+Estimated cost: **~$1.16/hour** for the shared single-node cluster running all three pipelines plus the live data injector.
+
+> The streaming pipelines use `processingTime` triggers, which are not supported on serverless compute (`INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED`). They run on a single classic job cluster shared across all three scenarios.
 
 ## Three Scenarios
 
@@ -221,7 +270,7 @@ One of the key features — operators can change rules while the pipeline is run
 
 ## Third-Party Package Licenses
 
-&copy; 2025 Databricks, Inc. All rights reserved. The source in this project is provided subject to the [Databricks License](https://databricks.com/db-license-source). All included or referenced third party libraries are subject to the licenses set forth below.
+&copy; 2026 Databricks, Inc. All rights reserved. The source in this project is provided subject to the [Databricks License](https://databricks.com/db-license-source). All included or referenced third party libraries are subject to the licenses set forth below.
 
 | Package | License | Copyright |
 |---------|---------|-----------|
